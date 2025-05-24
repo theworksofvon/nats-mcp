@@ -87,26 +87,28 @@ Replace the placeholders:
 Once configured, you can ask your AI assistant to:
 
 1. Publish a message:
-   ```
-   "Can you publish this message {"message" : "test" } to subject test.subject"
-   ```
+  ```
+  "Can you publish this message {"message" : "test" } to subject test.subject"
+  ```
+
 2. Diagnose Stream/Consumer issues:
-   ```
+  ```
   "What's going wrong with stream-2 and consumer-1?"
-   ```
+  ```
+
 3. Create a stream:
-   ```
-   "Can you create me a new stream, stream-7 with all default values ?"
-   ```
+  ```
+  "Can you create me a new stream, stream-7 with all default values ?"
+  ```
 
 ## Available MCP Tools
 
 NatsMCP exposes the following JetStream-focused tools to your AI assistant:
 
-`createStream`- Create a new stream with a given name, subject set, storage type, limits, etc. |
-`addSubjects`- Append one or more additional subjects to an existing stream. |
-`publish`- Publish an arbitrary text payload to any subject in the cluster (handy for smoke-tests). |
-`listStreams`- List every stream in the configured JetStream domain together with basic stats. |
-`diagnoseStream` - Produce a detailed health report for a stream — messages/bytes, limits, potential issues. |
-`checkConsumerLag` - Show pending, redelivered, and lag metrics for a specific consumer. |
-`diagnoseConsumer` - Deep-dive into one consumer’s config and runtime state, highlighting red flags. |
+- `createStream`: Create a new stream with a given name, subject set, storage type, limits, etc.
+- `addSubjects`: Append one or more additional subjects to an existing stream. |
+- `publish`: Publish an arbitrary text payload to any subject in the cluster (handy for smoke-tests).
+- `listStreams`: List every stream in the configured JetStream domain together with basic stats.
+- `diagnoseStream`: Produce a detailed health report for a stream — messages/bytes, limits, potential issues.
+- `checkConsumerLag`: Show pending, redelivered, and lag metrics for a specific consumer.
+- `diagnoseConsumer`: Deep-dive into one consumer’s config and runtime state, highlighting red flags.
