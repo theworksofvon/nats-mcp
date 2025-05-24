@@ -112,3 +112,10 @@ NatsMCP exposes the following JetStream-focused tools to your AI assistant:
 - `diagnoseStream`: Produce a detailed health report for a stream — messages/bytes, limits, potential issues.
 - `checkConsumerLag`: Show pending, redelivered, and lag metrics for a specific consumer.
 - `diagnoseConsumer`: Deep-dive into one consumer’s config and runtime state, highlighting red flags.
+
+
+## To test
+
+- Run start-local-nats.sh script
+- Prompt your AI assistant with a command around Nats
+- View logs or use nats cli to ensure action has succeeded
