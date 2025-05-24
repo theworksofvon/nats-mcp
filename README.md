@@ -86,10 +86,11 @@ npm run build
       "env": {
         "NATS_URL": "YOUR_NATS_SERVER_URL",
         "NATS_DOMAIN": "YOUR_JS_DOMAIN",
-        // omit these if you don't want to use the gcloud backup/restore features
+        // omit below if gcloud backup/restore features are not needed
         // "GOOGLE_CLOUD_PROJECT": "YOUR_GCP_PROJECT_ID",
         // "GOOGLE_CLOUD_CLIENT_EMAIL": "YOUR_SERVICE_ACCOUNT_EMAIL",
         // "GOOGLE_CLOUD_PRIVATE_KEY": "YOUR_SERVICE_ACCOUNT_PRIVATE_KEY"
+        // omit below if you're running on local
         // "MCP_TRANSPORT": <sse or exclude for local>
         // "PORT": < define port # or exclude for local>
       }
