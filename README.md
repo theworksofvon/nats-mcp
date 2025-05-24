@@ -92,7 +92,7 @@ Once configured, you can ask your AI assistant to:
    ```
 2. Diagnose Stream/Consumer issues:
    ```
-  "What's going wrong with stream-2 and consumer-1 ?"
+  "What's going wrong with stream-2 and consumer-1?"
    ```
 3. Create a stream:
    ```
@@ -103,12 +103,10 @@ Once configured, you can ask your AI assistant to:
 
 NatsMCP exposes the following JetStream-focused tools to your AI assistant:
 
-| Tool | Purpose |
-|------|---------|
-| **`createStream`** | Create a new stream with a given name, subject set, storage type, limits, etc. |
-| **`addSubjects`** | Append one or more additional subjects to an existing stream. |
-| **`publish`** | Publish an arbitrary text payload to any subject in the cluster (handy for smoke-tests). |
-| **`listStreams`** | List every stream in the configured JetStream domain together with basic stats. |
-| **`diagnoseStream`** | Produce a detailed health report for a stream — messages/bytes, limits, potential issues. |
-| **`checkConsumerLag`** | Show pending, redelivered, and lag metrics for a specific consumer. |
-| **`diagnoseConsumer`** | Deep-dive into one consumer’s config and runtime state, highlighting red flags. |
+`createStream`- Create a new stream with a given name, subject set, storage type, limits, etc. |
+`addSubjects`- Append one or more additional subjects to an existing stream. |
+`publish`- Publish an arbitrary text payload to any subject in the cluster (handy for smoke-tests). |
+`listStreams`- List every stream in the configured JetStream domain together with basic stats. |
+`diagnoseStream` - Produce a detailed health report for a stream — messages/bytes, limits, potential issues. |
+`checkConsumerLag` - Show pending, redelivered, and lag metrics for a specific consumer. |
+`diagnoseConsumer` - Deep-dive into one consumer’s config and runtime state, highlighting red flags. |
