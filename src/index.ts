@@ -8,11 +8,6 @@ const server = new McpServer({
     version: "1.0.0",
 });
 
-const nc = await connect({
-    servers: [process.env.NATS_SERVER_URL || "nats://localhost:4222"]
-});
-
-
 // Tool to add subjects to a stream
 server.tool(
     "addSubjects",
@@ -22,6 +17,9 @@ server.tool(
         subjects: z.array(z.string()).describe("Array of new subjects to add to the stream"),
     },
     async ({ stream, subjects }) => {
+        const nc = await connect({
+            servers: [process.env.NATS_SERVER_URL || "nats://localhost:4222"]
+        });
         try {
             const js = await nc.jetstreamManager({domain: process.env.NATS_DOMAIN || "local"});
             
@@ -78,6 +76,9 @@ server.tool(
         numReplicas: z.number().min(1).max(5).default(1).describe("Number of stream replicas"),
     },
     async ({ name, subjects, maxAge, maxBytes, maxMsgs, storage, numReplicas }) => {
+        const nc = await connect({
+            servers: [process.env.NATS_SERVER_URL || "nats://localhost:4222"]
+        });
         try {
             const js = await nc.jetstreamManager({domain: process.env.NATS_DOMAIN || "local"});
             
@@ -130,8 +131,11 @@ server.tool(
         message: z.string().describe("Message content to publish"),
     },
     async ({ subject, message }) => {
+        const nc = await connect({
+            servers: [process.env.NATS_SERVER_URL || "nats://localhost:4222"]
+        });
         try {
-            await nc.publish(subject, new TextEncoder().encode(message));
+            nc.publish(subject, new TextEncoder().encode(message));
             return {
                 content: [{ 
                     type: "text", 
@@ -159,6 +163,9 @@ server.tool(
         consumer: z.string().describe("Name of the consumer to check"),
     },
     async ({ stream, consumer }) => {
+        const nc = await connect({
+            servers: [process.env.NATS_SERVER_URL || "nats://localhost:4222"]
+        });
         try {
             const js = nc.jetstream();
             
@@ -195,6 +202,9 @@ server.tool(
     "List all streams on the NATS server",
     {},
     async () => {
+        const nc = await connect({
+            servers: [process.env.NATS_SERVER_URL || "nats://localhost:4222"]
+        });
         try {
             const js = await nc.jetstreamManager({domain: process.env.NATS_DOMAIN || "local"});
             const streams = js.streams.list();
@@ -249,6 +259,9 @@ server.tool(
         stream: z.string().describe("Name of the stream to diagnose"),
     },
     async ({ stream }) => {
+        const nc = await connect({
+            servers: [process.env.NATS_SERVER_URL || "nats://localhost:4222"]
+        });
         try {
             const js = await nc.jetstreamManager({domain: process.env.NATS_DOMAIN || "local"});
             
@@ -324,6 +337,9 @@ server.tool(
         consumer: z.string().describe("Name of the consumer to diagnose"),
     },
     async ({ stream, consumer }) => {
+        const nc = await connect({
+            servers: [process.env.NATS_SERVER_URL || "nats://localhost:4222"]
+        });
         try {
             const js = nc.jetstream();
             

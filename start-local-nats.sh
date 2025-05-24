@@ -1,61 +1,43 @@
 #!/usr/bin/env bash
 
 CONTAINER_NAME="nats-local"
-JSDOMAIN="local"
-STREAM_SUBJECT="edge.event.>"
-STREAMS=("stream-1" "stream-2" "stream-3")
-NATS_URL="nats://localhost:4222"
-CONF="$(mktemp)"
-cat > "${CONF}" <<EOF
+JS_DOMAIN="local"
+NATS_SERVER="nats://localhost:4222"
+WAIT_SECONDS=2
+
+echo "🚀 Spinning up NATS container '${CONTAINER_NAME}' …"
+docker rm -f "${CONTAINER_NAME}" 2>/dev/null || true
+
+CONF_FILE="$(mktemp)"
+cat > "${CONF_FILE}" <<EOF
 jetstream {
-  domain: "${JSDOMAIN}"
+  domain: "${JS_DOMAIN}"
   store_dir: "/data/jetstream"
 }
-
-server_name: "local-js"
-http: 0.0.0.0:8222
 EOF
-
-echo "🚀 Spinning up NATS container '${CONTAINER_NAME}' ..."
-docker rm -f "${CONTAINER_NAME}" 2>/dev/null || true
 
 docker run -d \
   --name "${CONTAINER_NAME}" \
-  -p 4222:4222 -p 6222:6222 -p 8222:8222 \
-  -v "${CONF}":/etc/nats/nats-server.conf:ro \
-  nats:latest \
-  -c /etc/nats/nats-server.conf
+  -p 4222:4222 -p 8222:8222 \
+  -v "${CONF_FILE}":/etc/nats/nats.conf:ro \
+  nats:latest -c /etc/nats/nats.conf
 
-echo "⏳ Waiting a couple of seconds for the server to become ready ..."
-sleep 2
+echo "⏳ Waiting ${WAIT_SECONDS}s for the server to become ready …"
+sleep "${WAIT_SECONDS}"
 
+for cfg in *-stream.json; do
+  [ -e "$cfg" ] || continue
 
-create_stream () {
-  local stream="$1"
-  local cfg
-  cfg="$(mktemp)"
-  cat > "${cfg}" <<JSON
-{
-  "name": "${stream}",
-  "subjects": ["${STREAM_SUBJECT}"],
-  "storage": "file",
-  "retention": "limits",
-  "discard": "new",
-  "replicas": 1
-}
-JSON
+  stream="${cfg%-stream.json}"
+  echo "📦 Creating stream '${stream}' from '${cfg}' …"
 
-  echo "📦 Creating stream '${stream}' ..."
-  nats --server "${NATS_URL}" \
-       --js-domain "${JSDOMAIN}" \
-       stream add --config "${cfg}" --output /dev/null
-  rm -f "${cfg}"
-}
-
-for s in "${STREAMS[@]}"; do
-  create_stream "${s}"
+  nats --server "${NATS_SERVER}" \
+       --js-domain "${JS_DOMAIN}" \
+       stream add "${stream}" --config "${cfg}"
 done
 
-
-echo -e "\n✅  All done — NATS is up on ${NATS_URL} and the streams are ready."
-echo "   Verify with:  nats --server ${NATS_URL} --js-domain ${JSDOMAIN} stream ls"
+echo
+echo "📋 Streams on ${JS_DOMAIN}:"
+nats --server "${NATS_SERVER}" --js-domain "${JS_DOMAIN}" stream ls
+echo
+echo "🎉 Done – NATS is running at ${NATS_SERVER}"
