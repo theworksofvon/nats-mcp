@@ -259,7 +259,8 @@ server.tool(
                        `• Replicas: ${stream.config.num_replicas}\n` +
                        `• Max Age: ${stream.config.max_age ? `${stream.config.max_age}ns` : "unlimited"}\n` +
                        `• Max Bytes: ${stream.config.max_bytes ? `${stream.config.max_bytes} bytes` : "unlimited"}\n` +
-                       `• Max Messages: ${stream.config.max_msgs ? stream.config.max_msgs : "unlimited"}\n`;
+                       `• Max Messages: ${stream.config.max_msgs ? stream.config.max_msgs : "unlimited"}\n` +
+                       `• Sources: ${stream.config.sources?.map((s: any) => s.name).join(", ") || "none"}\n`;
             }).join("\n");
 
             return {
