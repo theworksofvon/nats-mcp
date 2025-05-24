@@ -23,7 +23,7 @@ Unofficial Nats MCP server to play around with nats.
   Inspect delivered, pending, redelivered counts and real-time lag for any consumer.
 
 - **Detailed consumer diagnostics**  
-  Deep-dive into a consumer’s config (ack policy, deliver policy, filters) and surface red flags.
+  Deep-dive into a consumer's config (ack policy, deliver policy, filters) and surface red flags.
 
 - **Human-friendly errors & guidance**  
   Straightforward explanations and remediation tips instead of cryptic stack traces.
@@ -31,12 +31,16 @@ Unofficial Nats MCP server to play around with nats.
 - **Add Sourcing on Demand**
   Add a new stream to sourcing for an existing stream.
 
+- **Stream Backup & Restore**
+  Backup stream configurations and states to Google Cloud Storage, with smart date-based restore capabilities.
+
 ## Installation
 
 ### Prerequisites
 
 - Node.js (v16 or higher)
 - npm or yarn
+- Google Cloud Storage bucket (for backup/restore features)
 
 ### Build from source
 
@@ -73,7 +77,11 @@ npm run build
       ],
       "env": {
         "NATS_URL": "YOUR_NATS_SERVER_URL",
-        "NATS_DOMAIN": "YOUR_JS_DOMAIN"
+        "NATS_DOMAIN": "YOUR_JS_DOMAIN",
+        // omit these if you don't want to use the gcloud backup/restore features
+        // "GOOGLE_CLOUD_PROJECT": "YOUR_GCP_PROJECT_ID",
+        // "GOOGLE_CLOUD_CLIENT_EMAIL": "YOUR_SERVICE_ACCOUNT_EMAIL",
+        // "GOOGLE_CLOUD_PRIVATE_KEY": "YOUR_SERVICE_ACCOUNT_PRIVATE_KEY"
       }
     }
   }
@@ -83,7 +91,10 @@ npm run build
 Replace the placeholders:
 - `/path/to/your/nats-mcp/build/index.js` - The full path to the built index.js file
 - `NATS_URL` - URL to nats server (e.g., `nats@localhost:4222`)
-- `NATS_DOMAIN` - Your JS domain name.
+- `NATS_DOMAIN` - Your JS domain name
+- `GOOGLE_CLOUD_PROJECT` - Your Google Cloud project ID (optional)
+- `GOOGLE_CLOUD_CLIENT_EMAIL` - Service account email (optional)
+- `GOOGLE_CLOUD_PRIVATE_KEY` - Service account private key (optional)
 
 ## Working with your AI Assistant
 
@@ -109,20 +120,33 @@ Once configured, you can ask your AI assistant to:
   "Can you add stream-1 to source-stream-2 sourcing list ?"
   ```
 
+5. Backup a stream:
+  ```
+  "Can you backup stream-1 to my-backups-bucket?"
+  ```
+
+6. Restore a stream:
+  ```
+  "Can you restore stream-1 from the backup closest to May 30th?"
+  ```
+
 ## Available MCP Tools
 
 NatsMCP exposes the following JetStream-focused tools to your AI assistant:
 
 - `createStream`: Create a new stream with a given name, subject set, storage type, limits, etc.
-- `addSubjects`: Append one or more additional subjects to an existing stream. |
+- `addSubjects`: Append one or more additional subjects to an existing stream.
 - `publish`: Publish an arbitrary text payload to any subject in the cluster (handy for smoke-tests).
 - `listStreams`: List every stream in the configured JetStream domain together with basic stats.
 - `diagnoseStream`: Produce a detailed health report for a stream — messages/bytes, limits, potential issues.
 - `checkConsumerLag`: Show pending, redelivered, and lag metrics for a specific consumer.
-- `diagnoseConsumer`: Deep-dive into one consumer’s config and runtime state, highlighting red flags.
+- `diagnoseConsumer`: Deep-dive into one consumer's config and runtime state, highlighting red flags.
 - `addStreamSource`: Adds a stream to a SourceStream sources list.
 - `checkStreamSources`: Check the sources a stream has listed.
-
+- `removeStreamSource`: Removes a stream from another streams sourcing list.
+- `deleteStream`: Delete a stream completely.
+- `backupStream`: Backup or restore a stream's configuration and state using Google Cloud Storage.
+- `listBackups`: List available backups for a stream and find the closest backup to a specific date.
 
 ## To test
 
