@@ -28,6 +28,9 @@ Unofficial Nats MCP server to play around with nats.
 - **Human-friendly errors & guidance**  
   Straightforward explanations and remediation tips instead of cryptic stack traces.
 
+- **Add Sourcing on Demand**
+  Add a new stream to sourcing for an existing stream.
+
 ## Installation
 
 ### Prerequisites
@@ -101,6 +104,11 @@ Once configured, you can ask your AI assistant to:
   "Can you create me a new stream, stream-7 with all default values ?"
   ```
 
+4. Add sourcing:
+  ```
+  "Can you add stream-1 to source-stream-2 sourcing list ?"
+  ```
+
 ## Available MCP Tools
 
 NatsMCP exposes the following JetStream-focused tools to your AI assistant:
@@ -112,6 +120,8 @@ NatsMCP exposes the following JetStream-focused tools to your AI assistant:
 - `diagnoseStream`: Produce a detailed health report for a stream — messages/bytes, limits, potential issues.
 - `checkConsumerLag`: Show pending, redelivered, and lag metrics for a specific consumer.
 - `diagnoseConsumer`: Deep-dive into one consumer’s config and runtime state, highlighting red flags.
+- `addStreamSource`: Adds a stream to a SourceStream sources list.
+- `checkStreamSources`: Check the sources a stream has listed.
 
 
 ## To test

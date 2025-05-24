@@ -404,6 +404,110 @@ server.tool(
     }
 );
 
+// Tool to add a source stream
+server.tool(
+    "addStreamSource",
+    "Add a source stream to an existing NATS stream",
+    {
+        stream: z.string().describe("Name of the stream to add the source to"),
+        sourceStream: z.string().describe("Name of the source stream to add"),
+    },
+    async ({ stream, sourceStream }) => {
+        const nc = await connect({
+            servers: [process.env.NATS_SERVER_URL || "nats://localhost:4222"]
+        });
+        try {
+            const js = await nc.jetstreamManager({domain: process.env.NATS_DOMAIN || "local"});
+            
+            const streamInfo = await js.streams.info(stream);
+            
+            await js.streams.info(sourceStream);
+            
+            const streamConfig = {
+                ...streamInfo.config,
+                sources: [
+                    ...(streamInfo.config.sources || []),
+                    { name: sourceStream }
+                ]
+            };
+
+            const updatedStream = await js.streams.update(stream, streamConfig);
+
+            return {
+                content: [{ 
+                    type: "text", 
+                    text: `✅ Successfully added source stream "${sourceStream}" to "${stream}"\n\n` +
+                          `📋 Updated Stream Configuration:\n` +
+                          `• Name: ${updatedStream.config.name}\n` +
+                          `• Sources: ${updatedStream.config.sources?.map(s => s.name).join(", ") || "none"}\n` +
+                          `• Storage: ${updatedStream.config.storage}\n` +
+                          `• Replicas: ${updatedStream.config.num_replicas}\n` +
+                          `• Max Age: ${updatedStream.config.max_age ? `${updatedStream.config.max_age}ns` : "unlimited"}\n` +
+                          `• Max Bytes: ${updatedStream.config.max_bytes ? `${updatedStream.config.max_bytes} bytes` : "unlimited"}\n` +
+                          `• Max Messages: ${updatedStream.config.max_msgs ? updatedStream.config.max_msgs : "unlimited"}`
+                }]
+            };
+        } catch (error) {
+            return {
+                content: [{ 
+                    type: "text", 
+                    text: `❌ Error adding source stream: ${error instanceof Error ? error.message : String(error)}` 
+                }],
+                isError: true
+            };
+        }
+    }
+);
+
+// Tool to check stream sources
+server.tool(
+    "checkStreamSources",
+    "Check the sources configured for a NATS stream",
+    {
+        stream: z.string().describe("Name of the stream to check sources for"),
+    },
+    async ({ stream }) => {
+        const nc = await connect({
+            servers: [process.env.NATS_SERVER_URL || "nats://localhost:4222"]
+        });
+        try {
+            const js = await nc.jetstreamManager({domain: process.env.NATS_DOMAIN || "local"});
+            
+            const streamInfo = await js.streams.info(stream);
+            
+            const sources = streamInfo.config.sources || [];
+            
+            if (sources.length === 0) {
+                return {
+                    content: [{ 
+                        type: "text", 
+                        text: `📋 Stream "${stream}" has no configured sources`
+                    }]
+                };
+            }
+
+            const sourceDetails = sources.map(source => {
+                return `• ${source.name}`;
+            }).join("\n");
+
+            return {
+                content: [{ 
+                    type: "text", 
+                    text: `📋 Sources configured for stream "${stream}":\n\n${sourceDetails}`
+                }]
+            };
+        } catch (error) {
+            return {
+                content: [{ 
+                    type: "text", 
+                    text: `❌ Error checking stream sources: ${error instanceof Error ? error.message : String(error)}` 
+                }],
+                isError: true
+            };
+        }
+    }
+);
+
 // Start the MCP server
 async function main() {
     const transport = new StdioServerTransport();
