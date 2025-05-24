@@ -1267,6 +1267,137 @@ server.tool(
     }
 );
 
+server.resource("streamHealth", "/streams/health", async (uri: URL) => {
+  const js = await (await connect({
+    servers: [process.env.NATS_SERVER_URL || "nats://localhost:4222"]
+  })).jetstreamManager({domain: process.env.NATS_DOMAIN || "local"});
+  
+  const streams = js.streams.list();
+  const streamList: any[] = [];
+  for await (const stream of streams) {
+    streamList.push(stream);
+  }
+  
+  const healthData = await Promise.all(
+    streamList.map(async (stream: any) => {
+      const info = await js.streams.info(stream.config.name);
+      return {
+        name: stream.config.name,
+        messages: info.state.messages,
+        bytes: info.state.bytes,
+        firstSeq: info.state.first_seq,
+        lastSeq: info.state.last_seq,
+        consumerCount: info.state.consumer_count,
+        deleted: info.state.deleted,
+        numDeleted: info.state.num_deleted,
+        config: {
+          maxAge: stream.config.max_age,
+          maxBytes: stream.config.max_bytes,
+          maxMsgs: stream.config.max_msgs,
+          storage: stream.config.storage,
+          replicas: stream.config.num_replicas
+        }
+      };
+    })
+  );
+  return {
+    contents: [
+      {
+        text: JSON.stringify(healthData, null, 2),
+        uri: uri.toString(),
+        mimeType: "application/json"
+      }
+    ]
+  };
+});
+
+server.resource("consumerStatus", "/consumers/status", async (uri: URL) => {
+  const js = await (await connect({
+    servers: [process.env.NATS_SERVER_URL || "nats://localhost:4222"]
+  })).jetstreamManager({domain: process.env.NATS_DOMAIN || "local"});
+  
+  const streams = js.streams.list();
+  const streamList: any[] = [];
+  for await (const stream of streams) {
+    streamList.push(stream);
+  }
+  
+  const consumerData = await Promise.all(
+    streamList.map(async (stream: any) => {
+      const consumers = await js.consumers.list(stream.config.name);
+      const consumerList: any[] = [];
+      for await (const consumer of consumers) {
+        consumerList.push(consumer);
+      }
+      const consumerStatus = await Promise.all(
+        consumerList.map(async (consumer: any) => {
+          const info = await js.consumers.info(stream.config.name, consumer.name);
+          return {
+            stream: stream.config.name,
+            name: consumer.name,
+            delivered: info.delivered.stream_seq,
+            ackFloor: info.ack_floor.stream_seq,
+            pending: info.num_pending,
+            redelivered: info.num_redelivered,
+            config: {
+              ackPolicy: consumer.config.ack_policy,
+              deliverPolicy: consumer.config.deliver_policy,
+              maxDeliver: consumer.config.max_deliver,
+              filterSubject: consumer.config.filter_subject
+            }
+          };
+        })
+      );
+      return consumerStatus;
+    })
+  );
+  return {
+    contents: [
+      {
+        text: JSON.stringify(consumerData.flat(), null, 2),
+        uri: uri.toString(),
+        mimeType: "application/json"
+      }
+    ]
+  };
+});
+
+server.resource("clusterStats", "/cluster/stats", async (uri: URL) => {
+  const js = await (await connect({
+    servers: [process.env.NATS_SERVER_URL || "nats://localhost:4222"]
+  })).jetstreamManager({domain: process.env.NATS_DOMAIN || "local"});
+  
+  const streams = js.streams.list();
+  const streamList: any[] = [];
+  for await (const stream of streams) {
+    streamList.push(stream);
+  }
+  
+  const clusterData = {
+    totalStreams: streamList.length,
+    totalMessages: streamList.reduce((acc: number, stream: any) => acc + stream.state.messages, 0),
+    totalBytes: streamList.reduce((acc: number, stream: any) => acc + stream.state.bytes, 0),
+    streamsByStorage: streamList.reduce((acc: Record<string, number>, stream: any) => {
+      acc[stream.config.storage] = (acc[stream.config.storage] || 0) + 1;
+      return acc;
+    }, {}),
+    streamsByReplicas: streamList.reduce((acc: Record<string, number>, stream: any) => {
+      acc[stream.config.num_replicas] = (acc[stream.config.num_replicas] || 0) + 1;
+      return acc;
+    }, {}),
+    totalConsumers: streamList.reduce((acc: number, stream: any) => acc + stream.state.consumer_count, 0)
+  };
+  return {
+    contents: [
+      {
+        text: JSON.stringify(clusterData, null, 2),
+        uri: uri.toString(),
+        mimeType: "application/json"
+      }
+    ]
+  };
+});
+
 // Start the MCP server
 async function main() {
     let transport;

@@ -184,6 +184,32 @@ NatsMCP exposes the following JetStream-focused tools to your AI assistant:
 - `backupStream`: Backup or restore a stream's configuration and state using Google Cloud Storage.
 - `listBackups`: List available backups for a stream and find the closest backup to a specific date.
 
+## Available MCP Resources
+
+NatsMCP also provides the following resources for monitoring and diagnostics:
+
+- `/streams/health`: Provides real-time health metrics and status of all streams, including:
+  - Message counts and byte sizes
+  - Sequence numbers (first and last)
+  - Consumer counts
+  - Deletion statistics
+  - Stream configuration details (max age, bytes, messages, storage type, replicas)
+
+- `/consumers/status`: Provides current state of all consumers across all streams, including:
+  - Delivery status (delivered and acknowledged messages)
+  - Pending message counts
+  - Redelivery statistics
+  - Consumer configuration (ack policy, delivery policy, etc.)
+
+- `/cluster/stats`: Provides cluster-wide statistics and metrics, including:
+  - Total number of streams
+  - Total messages and bytes across all streams
+  - Distribution of streams by storage type
+  - Distribution of streams by replica count
+  - Total number of consumers
+
+These resources return JSON data that can be used for monitoring, alerting, and diagnostics. They are accessible via the MCP protocol and can be integrated with your monitoring systems.
+
 ## To test
 
 - Run start-local-nats.sh script
