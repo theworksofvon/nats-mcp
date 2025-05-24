@@ -40,7 +40,8 @@ Unofficial Nats MCP server to play around with nats.
 
 - Node.js (v16 or higher)
 - npm or yarn
-- Google Cloud Storage bucket (for backup/restore features)
+- **Google Cloud Storage bucket (optional, only required for backup/restore features)**
+- **Express (optional, only required for SSE/remote mode)**
 
 ### Build from source
 
@@ -51,6 +52,13 @@ cd nats-mcp
 
 # Install dependencies
 npm install
+
+# If you want to use SSE (remote) mode, install express:
+npm install express
+npm install --save-dev @types/express
+
+# If you want to use backup/restore features, install Google Cloud Storage:
+npm install @google-cloud/storage
 
 # Build the project
 npm run build
@@ -82,6 +90,8 @@ npm run build
         // "GOOGLE_CLOUD_PROJECT": "YOUR_GCP_PROJECT_ID",
         // "GOOGLE_CLOUD_CLIENT_EMAIL": "YOUR_SERVICE_ACCOUNT_EMAIL",
         // "GOOGLE_CLOUD_PRIVATE_KEY": "YOUR_SERVICE_ACCOUNT_PRIVATE_KEY"
+        // "MCP_TRANSPORT": <sse or exclude for local>
+        // "PORT": < define port # or exclude for local>
       }
     }
   }
@@ -95,6 +105,31 @@ Replace the placeholders:
 - `GOOGLE_CLOUD_PROJECT` - Your Google Cloud project ID (optional)
 - `GOOGLE_CLOUD_CLIENT_EMAIL` - Service account email (optional)
 - `GOOGLE_CLOUD_PRIVATE_KEY` - Service account private key (optional)
+
+### Running the Server
+
+- **Local (stdio) mode (default, no express required):**
+  ```bash
+  npm start
+  ```
+  The server will run locally and communicate via stdio (for desktop/local AI assistants).
+
+- **Remote (SSE) mode (requires express):**
+  ```bash
+  MCP_TRANSPORT=sse PORT=8080 npm start
+  ```
+  The server will listen on the specified port (default 8080) and expose two endpoints:
+  - `/sse` (for SSE connections)
+  - `/messages` (for message POSTs)
+
+  > **Note:** If you run in SSE mode without express installed, the server will exit with an error and instructions.
+
+- **Backup/Restore (requires @google-cloud/storage):**
+  If you want to use the backup and restore tools, you must install the Google Cloud Storage library:
+  ```bash
+  npm install @google-cloud/storage
+  ```
+  If you run a backup/restore command without this library, the server will show an error and instructions.
 
 ## Working with your AI Assistant
 

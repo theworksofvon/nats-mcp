@@ -1,7 +1,17 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { z } from "zod";
 import { connect, StorageType, DiscardPolicy, RetentionPolicy } from "nats";
+
+// Conditionally import Express
+let express: any;
+try {
+    const expressModule = await import('express');
+    express = expressModule.default;
+} catch (error) {
+    console.error("Express library not installed. SSE transport will be disabled.");
+}
 
 interface BackupFile {
     name: string;
@@ -1259,9 +1269,44 @@ server.tool(
 
 // Start the MCP server
 async function main() {
-    const transport = new StdioServerTransport();
-    await server.connect(transport);
-    console.error("📡 NATS MCP Server is running with publish and consumer lag tools...");
+    let transport;
+    
+    if (process.env.MCP_TRANSPORT && process.env.MCP_TRANSPORT === 'sse') {
+        if (!express) {
+            console.error("❌ SSE transport requires Express. Please install express and @types/express:");
+            console.error("npm install express");
+            console.error("npm install --save-dev @types/express");
+            process.exit(1);
+        }
+
+        // Create Express app for SSE transport
+        const app = express();
+        let sseTransport: SSEServerTransport | null = null;
+
+        // SSE endpoint
+        app.get("/sse", (req: any, res: any) => {
+            sseTransport = new SSEServerTransport("/messages", res);
+            server.connect(sseTransport);
+        });
+
+        // Message endpoint
+        app.post("/messages", (req: any, res: any) => {
+            if (sseTransport) {
+                sseTransport.handlePostMessage(req, res);
+            }
+        });
+
+        // Start Express server
+        const port = parseInt(process.env.PORT || '8080');
+        app.listen(port, () => {
+            console.error(`📡 NATS MCP Server is running on port ${port}...`);
+        });
+    } else {
+        // Default to stdio for local connections
+        transport = new StdioServerTransport();
+        await server.connect(transport);
+        console.error("📡 NATS MCP Server is running locally with stdio transport...");
+    }
 }
 
 main().catch((err) => {
