@@ -90,12 +90,10 @@ Once configured, you can ask your AI assistant to:
    ```
    "Can you publish this message {"message" : "test" } to subject test.subject"
    ```
-
 2. Diagnose Stream/Consumer issues:
    ```
   "What's going wrong with stream-2 and consumer-1 ?"
    ```
-
 3. Create a stream:
    ```
    "Can you create me a new stream, stream-7 with all default values ?"
