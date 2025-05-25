@@ -1,7 +1,8 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp";
 import { z } from "zod";
-import { connect, StorageType, DiscardPolicy, RetentionPolicy } from "nats";
+import { StorageType, DiscardPolicy, RetentionPolicy } from "nats";
 import { BackupFile } from "../types";
+import { connectNats } from "../nats";
 
 export class StreamTools {
     constructor(private readonly server: McpServer) {}
@@ -150,9 +151,7 @@ export class StreamTools {
         { stream, subjects }: { stream: string; subjects: string[] },
         _extra: any
     ): Promise<{ [x: string]: unknown; content: { [x: string]: unknown; type: "text"; text: string }[]; isError?: boolean }> {
-        const nc = await connect({
-            servers: [process.env.NATS_SERVER_URL || "nats://localhost:4222"]
-        });
+        const nc = await connectNats();
         try {
             const js = await nc.jetstreamManager({ domain: process.env.NATS_DOMAIN || "local" });
             const streamInfo = await js.streams.info(stream);
@@ -201,9 +200,7 @@ export class StreamTools {
         },
         _extra: any
     ): Promise<{ [x: string]: unknown; content: { [x: string]: unknown; type: "text"; text: string }[]; isError?: boolean }> {
-        const nc = await connect({
-            servers: [process.env.NATS_SERVER_URL || "nats://localhost:4222"]
-        });
+        const nc = await connectNats();
         try {
             const js = await nc.jetstreamManager({ domain: process.env.NATS_DOMAIN || "local" });
             const streamConfig = {
@@ -245,9 +242,7 @@ export class StreamTools {
         _args: {},
         _extra: any
     ): Promise<{ [x: string]: unknown; content: { [x: string]: unknown; type: "text"; text: string }[]; isError?: boolean }> {
-        const nc = await connect({
-            servers: [process.env.NATS_SERVER_URL || "nats://localhost:4222"]
-        });
+        const nc = await connectNats();
         try {
             const js = await nc.jetstreamManager({ domain: process.env.NATS_DOMAIN || "local" });
             const streams = js.streams.list();
@@ -298,9 +293,7 @@ export class StreamTools {
         { stream }: { stream: string },
         _extra: any
     ): Promise<{ [x: string]: unknown; content: { [x: string]: unknown; type: "text"; text: string }[]; isError?: boolean }> {
-        const nc = await connect({
-            servers: [process.env.NATS_SERVER_URL || "nats://localhost:4222"]
-        });
+        const nc = await connectNats();
         try {
             const js = await nc.jetstreamManager({ domain: process.env.NATS_DOMAIN || "local" });
             const streamInfo = await js.streams.info(stream);
@@ -364,9 +357,7 @@ export class StreamTools {
         args: { stream: string; sourceStream: string },
         _extra: any
     ): Promise<{ content: ({ type: "text"; text: string } | { type: "image"; data: string; mimeType: string } | { type: "audio"; data: string; mimeType: string } | { type: "resource"; resource: any })[]; isError?: boolean }> {
-        const nc = await connect({
-            servers: [process.env.NATS_SERVER_URL || "nats://localhost:4222"]
-        });
+        const nc = await connectNats();
         try {
             const js = await nc.jetstreamManager({domain: process.env.NATS_DOMAIN || "local"});
             
@@ -413,9 +404,7 @@ export class StreamTools {
         args: { stream: string },
         _extra: any
     ): Promise<{ content: ({ type: "text"; text: string } | { type: "image"; data: string; mimeType: string } | { type: "audio"; data: string; mimeType: string } | { type: "resource"; resource: any })[]; isError?: boolean }> {
-        const nc = await connect({
-            servers: [process.env.NATS_SERVER_URL || "nats://localhost:4222"]
-        });
+        const nc = await connectNats();
         try {
             const js = await nc.jetstreamManager({domain: process.env.NATS_DOMAIN || "local"});
             
@@ -457,9 +446,7 @@ export class StreamTools {
         args: { stream: string; sourceStream: string },
         _extra: any
     ): Promise<{ content: ({ type: "text"; text: string } | { type: "image"; data: string; mimeType: string } | { type: "audio"; data: string; mimeType: string } | { type: "resource"; resource: any })[]; isError?: boolean }> {
-        const nc = await connect({
-            servers: [process.env.NATS_SERVER_URL || "nats://localhost:4222"]
-        });
+        const nc = await connectNats();
         try {
             const js = await nc.jetstreamManager({domain: process.env.NATS_DOMAIN || "local"});
             
@@ -520,9 +507,7 @@ export class StreamTools {
         args: { stream: string; force?: boolean },
         _extra: any
     ): Promise<{ content: ({ type: "text"; text: string } | { type: "image"; data: string; mimeType: string } | { type: "audio"; data: string; mimeType: string } | { type: "resource"; resource: any })[]; isError?: boolean }> {
-        const nc = await connect({
-            servers: [process.env.NATS_SERVER_URL || "nats://localhost:4222"]
-        });
+        const nc = await connectNats();
         try {
             const js = await nc.jetstreamManager({domain: process.env.NATS_DOMAIN || "local"});
             
@@ -585,9 +570,7 @@ export class StreamTools {
         },
         _extra: any
     ): Promise<{ content: ({ type: "text"; text: string } | { type: "image"; data: string; mimeType: string } | { type: "audio"; data: string; mimeType: string } | { type: "resource"; resource: any })[]; isError?: boolean }> {
-        const nc = await connect({
-            servers: [process.env.NATS_SERVER_URL || "nats://localhost:4222"]
-        });
+        const nc = await connectNats();
         try {
             const js = await nc.jetstreamManager({domain: process.env.NATS_DOMAIN || "local"});
             
@@ -660,9 +643,7 @@ export class StreamTools {
         args: { stream: string; subject?: string; sequence?: number; keep?: number; olderThan?: number },
         _extra: any
     ): Promise<{ content: ({ type: "text"; text: string } | { type: "image"; data: string; mimeType: string } | { type: "audio"; data: string; mimeType: string } | { type: "resource"; resource: any })[]; isError?: boolean }> {
-        const nc = await connect({
-            servers: [process.env.NATS_SERVER_URL || "nats://localhost:4222"]
-        });
+        const nc = await connectNats();
         try {
             const js = await nc.jetstreamManager({domain: process.env.NATS_DOMAIN || "local"});
             
@@ -709,9 +690,7 @@ export class StreamTools {
         args: { stream: string; duration: number },
         _extra: any
     ): Promise<{ content: ({ type: "text"; text: string } | { type: "image"; data: string; mimeType: string } | { type: "audio"; data: string; mimeType: string } | { type: "resource"; resource: any })[]; isError?: boolean }> {
-        const nc = await connect({
-            servers: [process.env.NATS_SERVER_URL || "nats://localhost:4222"]
-        });
+        const nc = await connectNats();
         try {
             const js = await nc.jetstreamManager({domain: process.env.NATS_DOMAIN || "local"});
             
@@ -846,9 +825,7 @@ export class StreamTools {
             };
         }
 
-        const nc = await connect({
-            servers: [process.env.NATS_SERVER_URL || "nats://localhost:4222"]
-        });
+        const nc = await connectNats();
         try {
             const js = await nc.jetstreamManager({domain: process.env.NATS_DOMAIN || "local"});
             

@@ -1,6 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp";
 import { z } from "zod";
-import { connect } from "nats";
+import { connectNats } from "../nats";
 
 export class PublisherTools {
 
@@ -26,9 +26,7 @@ export class PublisherTools {
         _extra: any
     ): Promise<{ content: ({ type: "text"; text: string } | { type: "image"; data: string; mimeType: string } | { type: "audio"; data: string; mimeType: string } | { type: "resource"; resource: any })[]; isError?: boolean }> {
         const { subject, message } = args;
-        const nc = await connect({
-            servers: [process.env.NATS_SERVER_URL || "nats://localhost:4222"]
-        });
+        const nc = await connectNats();
         try {
             nc.publish(subject, new TextEncoder().encode(message));
             return {

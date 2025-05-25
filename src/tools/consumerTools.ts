@@ -1,6 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp";
 import { z } from "zod";
-import { connect } from "nats";
+import { connectNats } from "../nats";
 
 
 
@@ -36,9 +36,7 @@ export class ConsumerTools {
         _extra: any
     ): Promise<{ content: ({ type: "text"; text: string } | { type: "image"; data: string; mimeType: string } | { type: "audio"; data: string; mimeType: string } | { type: "resource"; resource: any })[]; isError?: boolean }> {
 
-        const nc = await connect({
-            servers: [process.env.NATS_SERVER_URL || "nats://localhost:4222"]
-        });
+        const nc = await connectNats();
         const { stream, consumer } = args;
         try {
             const js = nc.jetstream();
@@ -108,9 +106,7 @@ export class ConsumerTools {
         _extra: any
     ): Promise<{ content: ({ type: "text"; text: string } | { type: "image"; data: string; mimeType: string } | { type: "audio"; data: string; mimeType: string } | { type: "resource"; resource: any })[]; isError?: boolean }> {
         const { stream, consumer } = args;
-        const nc = await connect({
-            servers: [process.env.NATS_SERVER_URL || "nats://localhost:4222"]
-        });
+        const nc = await connectNats();
         try {
             const js = nc.jetstream();
             
