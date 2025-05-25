@@ -48,6 +48,39 @@ Unofficial Nats MCP server to play around with nats.
 - npm or yarn
 - **Google Cloud Storage bucket (optional, only required for backup/restore features)**
 - **Express (optional, only required for SSE/remote mode)**
+- **Docker (optional, for running via container)**
+
+### Run with Docker (Quick Start)
+
+You can run NatsMCP instantly using the latest Docker image:
+
+```bash
+docker pull theworksofvon915/nats-mcp:latest
+```
+
+Then, in your AI assistant config, you can use:
+
+```json
+{
+  "mcpServers": {
+    "NatsMCP": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "-e",
+        "NATS_SERVER_URL=YOUR_NATS_URL",
+        "theworksofvon915/nats-mcp:latest"
+      ]
+    }
+  }
+}
+```
+
+Replace `YOUR_NATS_URL` with your NATS server URL (e.g., `nats://localhost:4222`).
+
+You can also pass other environment variables (see below for options)
 
 ### Build from source
 
