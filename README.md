@@ -298,9 +298,3 @@ NatsMCP also provides the following resources for monitoring and diagnostics:
   - Total number of consumers
 
 These resources return JSON data that can be used for monitoring, alerting, and diagnostics. They are accessible via the MCP protocol and can be integrated with your monitoring systems.
-
-## To test
-
-- Run start-local-nats.sh script
-- Prompt your AI assistant with a command around Nats
-- View logs or use nats cli to ensure action has succeeded
