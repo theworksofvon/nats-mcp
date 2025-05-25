@@ -164,8 +164,6 @@ NatsMCP supports multiple authentication methods for connecting to your NATS ser
 - **Creds String**: Set `NATS_CREDS` to the contents of your creds file (as a string).
 - **No authentication**: If none of the above are set, NatsMCP will connect without authentication.
 
-You can also pass these options programmatically if you use the `connectNats` helper in your own code.
-
 ### Running the Server
 
 - **Local (stdio) mode (default, no express required):**
