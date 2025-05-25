@@ -2,8 +2,8 @@
     "config": {
       "name": "stream-2",
       "subjects": [
-        "cloud.dlq.>",
-        "edge.dlq.*.>"
+        "stream-2-cloud.dlq.>",
+        "stream-2.dlq.*.>"
       ],
       "retention": "limits",
       "max_consumers": -1,
