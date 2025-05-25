@@ -123,7 +123,7 @@ npm run build
         "/path/to/your/nats-mcp/build/index.js"
       ],
       "env": {
-        "NATS_URL": "YOUR_NATS_SERVER_URL",
+        "NATS_SERVER_URL": "YOUR_NATS_SERVER_URL",
         "NATS_DOMAIN": "YOUR_JS_DOMAIN",
         // gcloud
         // "GOOGLE_CLOUD_PROJECT": "YOUR_GCP_PROJECT_ID",
@@ -147,7 +147,7 @@ npm run build
 
 Replace the placeholders:
 - `/path/to/your/nats-mcp/build/index.js` - The full path to the built index.js file
-- `NATS_URL` - URL to nats server (e.g., `nats@localhost:4222`)
+- `NATS_SERVER_URL` - URL to nats server (e.g., `nats@localhost:4222`)
 - `NATS_DOMAIN` - Your JS domain name
 - `GOOGLE_CLOUD_PROJECT` - Your Google Cloud project ID (optional)
 - `GOOGLE_CLOUD_CLIENT_EMAIL` - Service account email (optional)

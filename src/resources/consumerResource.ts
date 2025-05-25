@@ -12,7 +12,7 @@ export class ConsumerResource extends BaseResource {
     }
     
     registerResources() {
-        this.server.resource("consumerStatus", "/consumers/status", this.consumerStatus.bind(this));
+        this.server.resource("consumerStatus", "nats-mcp://consumers/status", this.consumerStatus.bind(this));
     }
 
     private async consumerStatus(uri: URL) {

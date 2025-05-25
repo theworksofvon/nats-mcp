@@ -1,6 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp";
 import { z } from "zod";
-import { StorageType, DiscardPolicy, RetentionPolicy } from "nats";
+import { StorageType, DiscardPolicy, RetentionPolicy, StreamInfo } from "nats";
 import { BackupFile } from "../types";
 import { connectNats } from "../nats";
 
@@ -153,7 +153,7 @@ export class StreamTools {
     ): Promise<{ [x: string]: unknown; content: { [x: string]: unknown; type: "text"; text: string }[]; isError?: boolean }> {
         const nc = await connectNats();
         try {
-            const js = await nc.jetstreamManager({ domain: process.env.NATS_DOMAIN || "local" });
+            const js = await nc.jetstreamManager({ domain: process.env.NATS_DOMAIN });
             const streamInfo = await js.streams.info(stream);
             const updatedSubjects = [...new Set([...(streamInfo.config.subjects || []), ...subjects])];
             const streamConfig = {
@@ -202,7 +202,7 @@ export class StreamTools {
     ): Promise<{ [x: string]: unknown; content: { [x: string]: unknown; type: "text"; text: string }[]; isError?: boolean }> {
         const nc = await connectNats();
         try {
-            const js = await nc.jetstreamManager({ domain: process.env.NATS_DOMAIN || "local" });
+            const js = await nc.jetstreamManager({ domain: process.env.NATS_DOMAIN });
             const streamConfig = {
                 name,
                 subjects,
@@ -244,10 +244,10 @@ export class StreamTools {
     ): Promise<{ [x: string]: unknown; content: { [x: string]: unknown; type: "text"; text: string }[]; isError?: boolean }> {
         const nc = await connectNats();
         try {
-            const js = await nc.jetstreamManager({ domain: process.env.NATS_DOMAIN || "local" });
+            const js = await nc.jetstreamManager({ domain: process.env.NATS_DOMAIN });
             const streams = js.streams.list();
             
-            const streamList: any[] = [];
+            const streamList: StreamInfo[] = [];
             for await (const stream of streams) {
                 streamList.push(stream);
             }
@@ -260,18 +260,49 @@ export class StreamTools {
                     }]
                 };
             }
-
-            const streamDetails = streamList.map(stream => {
-                return `📋 Stream: ${stream.config.name}\n` +
-                       `• Subjects: ${stream.config.subjects.join(", ")}\n` +
-                       `• Storage: ${stream.config.storage}\n` +
-                       `• Replicas: ${stream.config.num_replicas}\n` +
-                       `• Max Age: ${stream.config.max_age ? `${stream.config.max_age}ns` : "unlimited"}\n` +
-                       `• Max Bytes: ${stream.config.max_bytes ? `${stream.config.max_bytes} bytes` : "unlimited"}\n` +
-                       `• Max Messages: ${stream.config.max_msgs ? stream.config.max_msgs : "unlimited"}\n` +
-                       `• Sources: ${stream.config.sources?.map((s: any) => s.name).join(", ") || "none"}\n`;
+    
+            const streamDetails = streamList.map((stream, index) => {
+                try {
+                    const config = stream.config;
+                    if (!config) {
+                        throw new Error("Stream config is missing");
+                    }
+                    
+                    const name = config.name || "undefined";
+                    const subjects = Array.isArray(config.subjects) ? config.subjects : [];
+                    const storage = config.storage || "undefined";
+                    const replicas = config.num_replicas ?? "undefined";
+                    const maxAge = config.max_age ? `${config.max_age}ns` : "undefined";
+                    const maxBytes = config.max_bytes ? `${config.max_bytes} bytes` : "undefined";
+                    const maxMsgs = config.max_msgs ? config.max_msgs : "undefined";
+                    
+                    let sourcesText = "undefined";
+                    if (config.sources && Array.isArray(config.sources) && config.sources.length > 0) {
+                        try {
+                            sourcesText = config.sources
+                                .map((s: any) => s?.name || "undefined")
+                                .filter(name => name !== "undefined")
+                                .join(", ") || "undefined";
+                        } catch (sourceError) {
+                            sourcesText = "error reading sources";
+                        }
+                    }
+    
+                    return `📋 Stream: ${name}\n` +
+                           `• Subjects: ${subjects.length > 0 ? subjects.join(", ") : "none"}\n` +
+                           `• Storage: ${storage}\n` +
+                           `• Replicas: ${replicas}\n` +
+                           `• Max Age: ${maxAge}\n` +
+                           `• Max Bytes: ${maxBytes}\n` +
+                           `• Max Messages: ${maxMsgs}\n` +
+                           `• Sources: ${sourcesText}\n`;
+                } catch (streamError) {
+                    const streamName = stream?.config?.name || `stream-${index}`;
+                    return `📋 Stream: ${streamName}\n` +
+                           `• ⚠️ Error reading stream details: ${streamError instanceof Error ? streamError.message : String(streamError)}\n`;
+                }
             }).join("\n");
-
+    
             return {
                 content: [{ 
                     type: "text", 
@@ -279,15 +310,26 @@ export class StreamTools {
                 }]
             };
         } catch (error) {
+            let errorMessage = "Unknown error occurred";
+            if (error instanceof Error) {
+                errorMessage = error.message;
+                if (error.message.includes("undefined")) {
+                    errorMessage += " (This may indicate missing stream data or connection issues)";
+                }
+            } else {
+                errorMessage = String(error);
+            }
+    
             return {
                 content: [{ 
                     type: "text", 
-                    text: `❌ Error listing streams: ${error instanceof Error ? error.message : String(error)}` 
+                    text: `❌ Error listing streams: ${errorMessage}` 
                 }],
                 isError: true
             };
         }
     }
+    
 
     private async diagnoseStream(
         { stream }: { stream: string },
@@ -295,7 +337,7 @@ export class StreamTools {
     ): Promise<{ [x: string]: unknown; content: { [x: string]: unknown; type: "text"; text: string }[]; isError?: boolean }> {
         const nc = await connectNats();
         try {
-            const js = await nc.jetstreamManager({ domain: process.env.NATS_DOMAIN || "local" });
+            const js = await nc.jetstreamManager({ domain: process.env.NATS_DOMAIN });
             const streamInfo = await js.streams.info(stream);
             const consumers = js.consumers.list(stream);
             const consumerList: any[] = [];
@@ -359,7 +401,7 @@ export class StreamTools {
     ): Promise<{ content: ({ type: "text"; text: string } | { type: "image"; data: string; mimeType: string } | { type: "audio"; data: string; mimeType: string } | { type: "resource"; resource: any })[]; isError?: boolean }> {
         const nc = await connectNats();
         try {
-            const js = await nc.jetstreamManager({domain: process.env.NATS_DOMAIN || "local"});
+            const js = await nc.jetstreamManager({domain: process.env.NATS_DOMAIN });
             
             const streamInfo = await js.streams.info(args.stream);
             
@@ -406,7 +448,7 @@ export class StreamTools {
     ): Promise<{ content: ({ type: "text"; text: string } | { type: "image"; data: string; mimeType: string } | { type: "audio"; data: string; mimeType: string } | { type: "resource"; resource: any })[]; isError?: boolean }> {
         const nc = await connectNats();
         try {
-            const js = await nc.jetstreamManager({domain: process.env.NATS_DOMAIN || "local"});
+            const js = await nc.jetstreamManager({domain: process.env.NATS_DOMAIN });
             
             const streamInfo = await js.streams.info(args.stream);
             
@@ -448,7 +490,7 @@ export class StreamTools {
     ): Promise<{ content: ({ type: "text"; text: string } | { type: "image"; data: string; mimeType: string } | { type: "audio"; data: string; mimeType: string } | { type: "resource"; resource: any })[]; isError?: boolean }> {
         const nc = await connectNats();
         try {
-            const js = await nc.jetstreamManager({domain: process.env.NATS_DOMAIN || "local"});
+            const js = await nc.jetstreamManager({domain: process.env.NATS_DOMAIN });
             
             const streamInfo = await js.streams.info(args.stream);
             
@@ -509,7 +551,7 @@ export class StreamTools {
     ): Promise<{ content: ({ type: "text"; text: string } | { type: "image"; data: string; mimeType: string } | { type: "audio"; data: string; mimeType: string } | { type: "resource"; resource: any })[]; isError?: boolean }> {
         const nc = await connectNats();
         try {
-            const js = await nc.jetstreamManager({domain: process.env.NATS_DOMAIN || "local"});
+            const js = await nc.jetstreamManager({domain: process.env.NATS_DOMAIN });
             
             const streamInfo = await js.streams.info(args.stream);
             
@@ -572,7 +614,7 @@ export class StreamTools {
     ): Promise<{ content: ({ type: "text"; text: string } | { type: "image"; data: string; mimeType: string } | { type: "audio"; data: string; mimeType: string } | { type: "resource"; resource: any })[]; isError?: boolean }> {
         const nc = await connectNats();
         try {
-            const js = await nc.jetstreamManager({domain: process.env.NATS_DOMAIN || "local"});
+            const js = await nc.jetstreamManager({domain: process.env.NATS_DOMAIN });
             
             const streamInfo = await js.streams.info(args.stream);
             
@@ -645,7 +687,7 @@ export class StreamTools {
     ): Promise<{ content: ({ type: "text"; text: string } | { type: "image"; data: string; mimeType: string } | { type: "audio"; data: string; mimeType: string } | { type: "resource"; resource: any })[]; isError?: boolean }> {
         const nc = await connectNats();
         try {
-            const js = await nc.jetstreamManager({domain: process.env.NATS_DOMAIN || "local"});
+            const js = await nc.jetstreamManager({domain: process.env.NATS_DOMAIN });
             
             const streamInfo = await js.streams.info(args.stream);
             
@@ -692,7 +734,7 @@ export class StreamTools {
     ): Promise<{ content: ({ type: "text"; text: string } | { type: "image"; data: string; mimeType: string } | { type: "audio"; data: string; mimeType: string } | { type: "resource"; resource: any })[]; isError?: boolean }> {
         const nc = await connectNats();
         try {
-            const js = await nc.jetstreamManager({domain: process.env.NATS_DOMAIN || "local"});
+            const js = await nc.jetstreamManager({domain: process.env.NATS_DOMAIN });
             
             // Get initial stream state
             const initialInfo = await js.streams.info(args.stream);
@@ -827,7 +869,7 @@ export class StreamTools {
 
         const nc = await connectNats();
         try {
-            const js = await nc.jetstreamManager({domain: process.env.NATS_DOMAIN || "local"});
+            const js = await nc.jetstreamManager({domain: process.env.NATS_DOMAIN });
             
             // Initialize Google Cloud Storage with authentication from environment variables
             const storageOptions: any = {};

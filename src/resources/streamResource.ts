@@ -8,7 +8,7 @@ export class StreamResource extends BaseResource {
         this.server = server;
     }
     registerResources() {
-        this.server.resource("streamHealth", "/streams/health", this.streamHealth.bind(this));
+        this.server.resource("streamHealth", "nats-mcp://streams/health", this.streamHealth.bind(this));
       }
 
     private async streamHealth(uri: URL) {

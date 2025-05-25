@@ -1,4 +1,4 @@
-import { connect, credsAuthenticator } from "nats";
+import { Authenticator, connect, credsAuthenticator } from "nats";
 import * as fs from "fs";
 
 export type NatsConnectOptions = {
@@ -9,10 +9,13 @@ export type NatsConnectOptions = {
   creds?: string;
 };
 
+export type NatsConnector = NatsConnectOptions & {
+  authenticator?: Authenticator;
+}
+
 export async function connectNats(options: NatsConnectOptions = {}) {
   const servers = options.servers
     || process.env.NATS_SERVER_URL
-    || "nats://localhost:4222";
   const name = options.name
     || process.env.NATS_CONNECTION_NAME;
   const token = options.token
@@ -22,7 +25,7 @@ export async function connectNats(options: NatsConnectOptions = {}) {
   const creds = options.creds
     || process.env.NATS_CREDS;
 
-  const connectOpts: any = { servers };
+  const connectOpts: NatsConnector = { servers };
   if (name) connectOpts.name = name;
   if (token) connectOpts.token = token;
 

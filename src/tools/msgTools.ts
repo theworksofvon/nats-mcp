@@ -69,7 +69,7 @@ export class MsgTools {
 
         const nc = await connectNats();
         try {
-            const jsm = await nc.jetstreamManager({domain: process.env.NATS_DOMAIN || "local"});
+            const jsm = await nc.jetstreamManager({domain: process.env.NATS_DOMAIN });
             const msg = await jsm.streams.getMessage(stream, { seq: sequence });
             if (!msg) {
                 return {
@@ -109,7 +109,7 @@ export class MsgTools {
         const { stream, count } = args;
         const nc = await connectNats();
         try {
-            const jsm = await nc.jetstreamManager({domain: process.env.NATS_DOMAIN || "local"});
+            const jsm = await nc.jetstreamManager({domain: process.env.NATS_DOMAIN });
             const info = await jsm.streams.info(stream);
             const lastSeq = info.state.last_seq;
             const firstSeq = Math.max(1, lastSeq - count + 1);
@@ -164,7 +164,7 @@ export class MsgTools {
 
         const nc = await connectNats();
         try {
-            const jsm = await nc.jetstreamManager({domain: process.env.NATS_DOMAIN || "local"});
+            const jsm = await nc.jetstreamManager({domain: process.env.NATS_DOMAIN });
             const info = await jsm.streams.info(stream);
             const lastSeq = info.state.last_seq;
             const firstSeq = Math.max(1, lastSeq - 500 + 1); // scan up to 500 messages for filtering
@@ -222,7 +222,7 @@ export class MsgTools {
         const { stream, headerKey, headerValue, count } = args;
         const nc = await connectNats();
         try {
-            const jsm = await nc.jetstreamManager({domain: process.env.NATS_DOMAIN || "local"});
+            const jsm = await nc.jetstreamManager({domain: process.env.NATS_DOMAIN });
             const info = await jsm.streams.info(stream);
             const lastSeq = info.state.last_seq;
             const firstSeq = Math.max(1, lastSeq - 500 + 1); // scan up to 500 messages
@@ -282,7 +282,7 @@ export class MsgTools {
         const { stream, count } = args;
         const nc = await connectNats();
         try {
-            const jsm = await nc.jetstreamManager({domain: process.env.NATS_DOMAIN || "local"});
+            const jsm = await nc.jetstreamManager({domain: process.env.NATS_DOMAIN });
             const info = await jsm.streams.info(stream);
             const lastSeq = info.state.last_seq;
             const firstSeq = Math.max(1, lastSeq - count + 1);
