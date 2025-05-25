@@ -3,9 +3,12 @@ import { z } from "zod";
 import { StorageType, DiscardPolicy, RetentionPolicy, StreamInfo } from "nats";
 import { BackupFile } from "../types";
 import { connectNats } from "../nats";
+import { BaseTool } from "./base";
 
-export class StreamTools {
-    constructor(private readonly server: McpServer) {}
+export class StreamTools extends BaseTool {
+    constructor(server: McpServer) {
+        super(server);
+    }
 
     registerTools() {
         this.server.tool(
@@ -155,26 +158,33 @@ export class StreamTools {
         try {
             const js = await nc.jetstreamManager({ domain: process.env.NATS_DOMAIN });
             const streamInfo = await js.streams.info(stream);
-            const updatedSubjects = [...new Set([...(streamInfo.config.subjects || []), ...subjects])];
+            
+            const existingSubjects = this.safeArray(streamInfo.config?.subjects);
+            const newSubjects = this.safeArray(subjects);
+            const updatedSubjects = [...new Set([...existingSubjects, ...newSubjects])];
+            
             const streamConfig = {
                 ...streamInfo.config,
                 subjects: updatedSubjects,
             };
+
             const updatedStream = await js.streams.update(stream, streamConfig);
+            const config = updatedStream.config;
+            
             return {
                 content: [{ 
                     type: "text", 
                     text: `✅ Successfully updated stream "${stream}"\n\n` +
                           `📋 Updated Stream Configuration:\n` +
-                          `• Name: ${updatedStream.config.name}\n` +
-                          `• Subjects: ${updatedStream.config.subjects.join(", ")}\n` +
-                          `• Storage: ${updatedStream.config.storage}\n` +
-                          `• Replicas: ${updatedStream.config.num_replicas}\n` +
-                          `• Max Age: ${updatedStream.config.max_age ? `${updatedStream.config.max_age}ns` : "unlimited"}\n` +
-                          `• Max Bytes: ${updatedStream.config.max_bytes ? `${updatedStream.config.max_bytes} bytes` : "unlimited"}\n` +
-                          `• Max Messages: ${updatedStream.config.max_msgs ? updatedStream.config.max_msgs : "unlimited"}\n\n` +
+                          `• Name: ${this.safeValue(config?.name)}\n` +
+                          `• Subjects: ${this.safeJoin(config?.subjects)}\n` +
+                          `• Storage: ${this.safeValue(config?.storage)}\n` +
+                          `• Replicas: ${this.safeValue(config?.num_replicas)}\n` +
+                          `• Max Age: ${config?.max_age ? `${config.max_age}ns` : "unlimited"}\n` +
+                          `• Max Bytes: ${config?.max_bytes && config.max_bytes !== -1 ? `${config.max_bytes} bytes` : "unlimited"}\n` +
+                          `• Max Messages: ${config?.max_msgs && config.max_msgs !== -1 ? config.max_msgs : "unlimited"}\n\n` +
                           `📝 Added Subjects:\n` +
-                          subjects.map(subject => `• ${subject}`).join("\n")
+                          newSubjects.map(subject => `• ${this.safeValue(subject)}`).join("\n")
                 }]
             };
         } catch (error) {
@@ -185,7 +195,7 @@ export class StreamTools {
                 }],
                 isError: true
             };
-        }
+        } 
     }
 
     private async createStream(
@@ -344,39 +354,51 @@ export class StreamTools {
             for await (const consumer of consumers) {
                 consumerList.push(consumer);
             }
+    
+            const config = streamInfo.config;
+            const state = streamInfo.state;
+    
             const report = [
                 "🔍 Stream Diagnostic Report",
                 "======================",
                 "",
                 "📋 Stream Configuration:",
-                `• Name: ${streamInfo.config.name}`,
-                `• Subjects: ${streamInfo.config.subjects.join(", ")}`,
-                `• Storage: ${streamInfo.config.storage}`,
-                `• Replicas: ${streamInfo.config.num_replicas}`,
-                `• Max Age: ${streamInfo.config.max_age ? `${streamInfo.config.max_age}ns` : "unlimited"}`,
-                `• Max Bytes: ${streamInfo.config.max_bytes ? `${streamInfo.config.max_bytes} bytes` : "unlimited"}`,
-                `• Max Messages: ${streamInfo.config.max_msgs ? streamInfo.config.max_msgs : "unlimited"}`,
+                `• Name: ${this.safeValue(config?.name)}`,
+                `• Subjects: ${this.safeJoin(config?.subjects)}`,
+                `• Storage: ${this.safeValue(config?.storage)}`,
+                `• Replicas: ${this.safeValue(config?.num_replicas)}`,
+                `• Max Age: ${config?.max_age ? `${config.max_age}ns` : "unlimited"}`,
+                `• Max Bytes: ${config?.max_bytes && config.max_bytes !== -1 ? `${config.max_bytes} bytes` : "unlimited"}`,
+                `• Max Messages: ${config?.max_msgs && config.max_msgs !== -1 ? config.max_msgs : "unlimited"}`,
                 "",
                 "📊 Stream State:",
-                `• Messages: ${streamInfo.state.messages}`,
-                `• Bytes: ${streamInfo.state.bytes}`,
-                `• First Sequence: ${streamInfo.state.first_seq}`,
-                `• Last Sequence: ${streamInfo.state.last_seq}`,
-                `• Consumer Count: ${streamInfo.state.consumer_count}`,
+                `• Messages: ${this.safeValue(state?.messages)}`,
+                `• Bytes: ${this.safeValue(state?.bytes)}`,
+                `• First Sequence: ${this.safeValue(state?.first_seq)}`,
+                `• Last Sequence: ${this.safeValue(state?.last_seq)}`,
+                `• Consumer Count: ${this.safeValue(state?.consumer_count)}`,
                 "",
                 "👥 Connected Consumers:",
-                ...consumerList.map(c => 
-                    `• ${c.name} (${c.config.durable_name || "ephemeral"})`
-                ),
+                ...this.safeArray(consumerList).map(c => {
+                    const name = this.safeValue(c?.name, "unnamed");
+                    const durableName = c?.config?.durable_name || "ephemeral";
+                    return `• ${name} (${durableName})`;
+                }),
+                ...(consumerList.length === 0 ? ["• No consumers found"] : []),
                 "",
                 "⚠️ Potential Issues:",
-                ...(streamInfo.state.messages === 0 ? ["• Stream is empty"] : []),
-                ...(streamInfo.state.consumer_count === 0 ? ["• No consumers connected"] : []),
-                ...(streamInfo.config.max_bytes && streamInfo.state.bytes >= streamInfo.config.max_bytes * 0.9 ? 
+                ...(state?.messages === 0 ? ["• Stream is empty"] : []),
+                ...(state?.consumer_count === 0 ? ["• No consumers connected"] : []),
+                ...(config?.max_bytes && config.max_bytes !== -1 && state?.bytes && 
+                    state.bytes >= config.max_bytes * 0.9 ? 
                     ["• Stream is approaching maximum size limit"] : []),
-                ...(streamInfo.config.max_msgs && streamInfo.state.messages >= streamInfo.config.max_msgs * 0.9 ? 
+                ...(config?.max_msgs && config.max_msgs !== -1 && state?.messages && 
+                    state.messages >= config.max_msgs * 0.9 ? 
                     ["• Stream is approaching maximum message limit"] : []),
-            ].join("\n");
+                ...(config?.subjects === undefined ? ["• ⚠️ Stream subjects data is missing"] : []),
+                ...(state === undefined ? ["• ⚠️ Stream state data is missing"] : []),
+                ...(config === undefined ? ["• ⚠️ Stream configuration data is missing"] : []),
+            ].filter(line => line !== undefined).join("\n");
     
             return {
                 content: [{ 
@@ -392,7 +414,7 @@ export class StreamTools {
                 }],
                 isError: true
             };
-        }
+        } 
     }
 
     private async addStreamSource(
@@ -736,47 +758,54 @@ export class StreamTools {
         try {
             const js = await nc.jetstreamManager({domain: process.env.NATS_DOMAIN });
             
-            // Get initial stream state
             const initialInfo = await js.streams.info(args.stream);
             const startTime = Date.now();
             const startMessages = initialInfo.state.messages;
             const startBytes = initialInfo.state.bytes;
             
-            // Wait for the specified duration
             await new Promise(resolve => setTimeout(resolve, args.duration * 1000));
             
-            // Get final stream state
             const finalInfo = await js.streams.info(args.stream);
             const endTime = Date.now();
             
-            // Calculate metrics
             const timeElapsed = (endTime - startTime) / 1000; // in seconds
             const messagesDelta = finalInfo.state.messages - startMessages;
             const bytesDelta = finalInfo.state.bytes - startBytes;
             const messagesPerSecond = messagesDelta / timeElapsed;
             const bytesPerSecond = bytesDelta / timeElapsed;
             
-            // Get consumer information
             const consumers = js.consumers.list(args.stream);
             const consumerList: any[] = [];
             for await (const consumer of consumers) {
                 consumerList.push(consumer);
             }
             
-            // Calculate consumer lag and performance
             const consumerMetrics = await Promise.all(consumerList.map(async (consumer) => {
-                const status = await js.consumers.info(args.stream, consumer.name);
-                const lag = finalInfo.state.last_seq - status.delivered.stream_seq;
-                return {
-                    name: consumer.name,
-                    lag,
-                    pending: status.num_pending,
-                    redelivered: status.num_redelivered,
-                    ackPending: status.num_ack_pending
-                };
+                try {
+                    const status = await js.consumers.info(args.stream, this.safeValue(consumer?.name, "unnamed"));
+                    const finalLastSeq = this.safeNumber(finalInfo.state?.last_seq, 0);
+                    const deliveredSeq = this.safeNumber(status.delivered?.stream_seq, 0);
+                    const lag = Math.max(0, finalLastSeq - deliveredSeq);
+                    
+                    return {
+                        name: this.safeValue(consumer?.name, "unnamed"),
+                        lag,
+                        pending: this.safeNumber(status.num_pending, 0),
+                        redelivered: this.safeNumber(status.num_redelivered, 0),
+                        ackPending: this.safeNumber(status.num_ack_pending, 0)
+                    };
+                } catch (consumerError) {
+                    return {
+                        name: this.safeValue(consumer?.name, "unnamed"),
+                        lag: 0,
+                        pending: 0,
+                        redelivered: 0,
+                        ackPending: 0,
+                        error: true
+                    };
+                }
             }));
             
-            // Check for potential issues
             const issues = [];
             
             // Check message rate
@@ -802,7 +831,7 @@ export class StreamTools {
                     issues.push(`⚠️ Messages older than max_age detected`);
                 }
             }
-
+    
             return {
                 content: [{ 
                     type: "text", 
@@ -814,13 +843,15 @@ export class StreamTools {
                           `• Total Messages: ${finalInfo.state.messages}\n` +
                           `• Total Bytes: ${Math.round(finalInfo.state.bytes / 1024)} KB\n\n` +
                           `👥 Consumer Status:\n` +
-                          consumerMetrics.map(c => 
-                              `• ${c.name}:\n` +
-                              `  - Lag: ${c.lag} messages\n` +
-                              `  - Pending: ${c.pending} messages\n` +
-                              `  - Redelivered: ${c.redelivered} messages\n` +
-                              `  - Ack Pending: ${c.ackPending} messages`
-                          ).join("\n") + "\n\n" +
+                          (consumerMetrics.length > 0 ? 
+                              consumerMetrics.map(c => 
+                                  `• ${c.name}:${c.error ? " (error reading data)" : ""}\n` +
+                                  `  - Lag: ${c.lag} messages\n` +
+                                  `  - Pending: ${c.pending} messages\n` +
+                                  `  - Redelivered: ${c.redelivered} messages\n` +
+                                  `  - Ack Pending: ${c.ackPending} messages`
+                              ).join("\n") : "• No consumers found"
+                          ) + "\n\n" +
                           `⚙️ Configuration:\n` +
                           `• Storage: ${finalInfo.config.storage}\n` +
                           `• Replicas: ${finalInfo.config.num_replicas}\n` +

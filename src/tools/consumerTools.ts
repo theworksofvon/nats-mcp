@@ -1,13 +1,13 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp";
 import { z } from "zod";
 import { connectNats } from "../nats";
+import { BaseTool } from "./base";
 
 
+export class ConsumerTools extends BaseTool {
 
-export class ConsumerTools {
-
-    constructor(private readonly server: McpServer) {
-        this.server = server;
+    constructor(server: McpServer) {
+        super(server);
     }
     
     registerTools() {
@@ -35,24 +35,25 @@ export class ConsumerTools {
         args: { stream:string, consumer: string },
         _extra: any
     ): Promise<{ content: ({ type: "text"; text: string } | { type: "image"; data: string; mimeType: string } | { type: "audio"; data: string; mimeType: string } | { type: "resource"; resource: any })[]; isError?: boolean }> {
-
+    
         const nc = await connectNats();
         const { stream, consumer } = args;
         try {
             const js = nc.jetstream();
             
-            // Get consumer information
             const consumerInfo = await js.consumers.get(stream, consumer);
             const status = await consumerInfo.info();
             
-            // Get stream information for context
             const streamInfo = await js.streams.get(stream);
             const streamState = await streamInfo.info();
-
-            // Calculate consumer lag
-            const lag = streamState.state.last_seq - status.delivered.stream_seq;
+    
+            const streamLastSeq = this.safeNumber(streamState.state?.last_seq, 0);
+            const deliveredSeq = this.safeNumber(status.delivered?.stream_seq, 0);
+            const lag = Math.max(0, streamLastSeq - deliveredSeq);
             
-            // Build diagnostic report
+            const config = status.config || {};
+            const delivered = status.delivered || {};
+            
             const report = [
                 "🔍 Consumer Diagnostic Report",
                 "=========================",
@@ -60,30 +61,32 @@ export class ConsumerTools {
                 "📋 Consumer Configuration:",
                 `• Name: ${consumer}`,
                 `• Stream: ${stream}`,
-                `• Durable Name: ${status.config.durable_name || "ephemeral"}`,
-                `• Ack Policy: ${status.config.ack_policy}`,
-                `• Deliver Policy: ${status.config.deliver_policy}`,
-                `• Filter Subject: ${status.config.filter_subject || "none"}`,
-                `• Max Ack Pending: ${status.config.max_ack_pending}`,
-                `• Max Deliver: ${status.config.max_deliver || "unlimited"}`,
+                `• Durable Name: ${this.safeValue(config.durable_name, "ephemeral")}`,
+                `• Ack Policy: ${this.safeValue(config.ack_policy, "unknown")}`,
+                `• Deliver Policy: ${this.safeValue(config.deliver_policy, "unknown")}`,
+                `• Filter Subject: ${this.safeValue(config.filter_subject, "none")}`,
+                `• Max Ack Pending: ${this.safeNumber(config.max_ack_pending, 0)}`,
+                `• Max Deliver: ${config.max_deliver ? this.safeValue(config.max_deliver, "0") : "unlimited"}`,
                 "",
                 "📊 Consumer State:",
-                `• Delivered Messages: ${status.delivered.consumer_seq}`,
-                `• Last Stream Sequence: ${status.delivered.stream_seq}`,
-                `• Pending Messages: ${status.num_pending}`,
-                `• Waiting Requests: ${status.num_waiting}`,
-                `• Redelivered Messages: ${status.num_redelivered}`,
+                `• Delivered Messages: ${this.safeNumber(delivered.consumer_seq, 0)}`,
+                `• Last Stream Sequence: ${this.safeNumber(delivered.stream_seq, 0)}`,
+                `• Pending Messages: ${this.safeNumber(status.num_pending, 0)}`,
+                `• Waiting Requests: ${this.safeNumber(status.num_waiting, 0)}`,
+                `• Redelivered Messages: ${this.safeNumber(status.num_redelivered, 0)}`,
                 `• Consumer Lag: ${lag}`,
                 "",
                 "⚠️ Potential Issues:",
-                ...(status.num_pending > 0 ? [`• ${status.num_pending} messages pending acknowledgment`] : []),
-                ...(status.num_redelivered > 0 ? [`• ${status.num_redelivered} messages have been redelivered`] : []),
+                ...(this.safeNumber(status.num_pending, 0) > 0 ? [`• ${this.safeNumber(status.num_pending, 0)} messages pending acknowledgment`] : []),
+                ...(this.safeNumber(status.num_redelivered, 0) > 0 ? [`• ${this.safeNumber(status.num_redelivered, 0)} messages have been redelivered`] : []),
                 ...(lag > 1000 ? [`• High consumer lag: ${lag} messages behind`] : []),
-                ...(status.num_waiting === 0 ? ["• No active pull requests"] : []),
-                ...(status.config.max_ack_pending && status.num_pending >= status.config.max_ack_pending * 0.9 ? 
+                ...(this.safeNumber(status.num_waiting, 0) === 0 ? ["• No active pull requests"] : []),
+                ...(config.max_ack_pending && this.safeNumber(status.num_pending, 0) >= this.safeNumber(config.max_ack_pending, 0) * 0.9 ? 
                     ["• Approaching maximum ack pending limit"] : []),
-            ].join("\n");
-
+                ...(status.delivered === undefined ? ["• ⚠️ Consumer delivery data is missing"] : []),
+                ...(config === undefined ? ["• ⚠️ Consumer configuration data is missing"] : []),
+            ].filter(line => line !== undefined).join("\n");
+    
             return {
                 content: [{ 
                     type: "text", 
@@ -110,7 +113,6 @@ export class ConsumerTools {
         try {
             const js = nc.jetstream();
             
-            // Get consumer status information
             const status = await js.consumers.get(stream, consumer);
             const stats = await status.info();
             
@@ -120,9 +122,9 @@ export class ConsumerTools {
                     text: `📊 Consumer Status for ${consumer} in stream ${stream}:\n` +
                           `• Stream: ${stream}\n` +
                           `• Consumer: ${consumer}\n` +
-                          `• Num Pending: ${stats.num_pending}\n` +
-                          `• Num Waiting: ${stats.num_waiting}\n` +
-                          `• Num Redelivered: ${stats.num_redelivered}`
+                          `• Num Pending: ${this.safeNumber(stats.num_pending, 0)}\n` +
+                          `• Num Waiting: ${this.safeNumber(stats.num_waiting, 0)}\n` +
+                          `• Num Redelivered: ${this.safeNumber(stats.num_redelivered, 0)}`
                 }]
             };
         } catch (error) {

@@ -2,11 +2,56 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp";
 import { z } from "zod";
 import { FilteredMessage, HeaderMatchMessage } from "../types";
 import { connectNats } from "../nats";
+import { BaseTool } from "./base";
 
-export class MsgTools {
+export class MsgTools extends BaseTool {
 
-    constructor(private readonly server: McpServer) {
-        this.server = server;
+    constructor(server: McpServer) {
+        super(server);
+    }
+
+    private subjectMatches(msgSubject: string, filterSubject: string): boolean {
+        try {
+            if (!msgSubject || !filterSubject) return false;
+            
+            if (msgSubject === filterSubject) return true;
+            
+            if (filterSubject.includes('*')) {
+                const regex = new RegExp(`^${filterSubject.replace(/\*/g, ".*")}$`);
+                return regex.test(msgSubject);
+            }  
+            return false;
+        } catch (error) {
+            return msgSubject === filterSubject;
+        }
+    }
+
+    private checkHeaderMatch(headers: any, headerKey: string, headerValue?: string): { isMatch: boolean; value: string } {
+        try {
+            if (!headers || !headerKey) {
+                return { isMatch: false, value: "undefined" };
+            }
+            
+            if (typeof headers.has !== 'function' || typeof headers.get !== 'function') {
+                return { isMatch: false, value: "invalid headers object" };
+            }
+            
+            if (!headers.has(headerKey)) {
+                return { isMatch: false, value: "undefined" };
+            }
+            
+            const value = headers.get(headerKey);
+            const safeValue = this.safeValue(value, "undefined");
+            
+            if (!headerValue) {
+                return { isMatch: true, value: safeValue };
+            }
+            const isMatch = safeValue === headerValue;
+            return { isMatch, value: safeValue };
+            
+        } catch (error) {
+            return { isMatch: false, value: "error reading header" };
+        }
     }
     
     registerTools() {
@@ -66,7 +111,7 @@ export class MsgTools {
         _extra: any
     ): Promise<{ content: ({ type: "text"; text: string } | { type: "image"; data: string; mimeType: string } | { type: "audio"; data: string; mimeType: string } | { type: "resource"; resource: any })[]; isError?: boolean }> {
         const { stream, sequence } = args;
-
+    
         const nc = await connectNats();
         try {
             const jsm = await nc.jetstreamManager({domain: process.env.NATS_DOMAIN });
@@ -80,14 +125,27 @@ export class MsgTools {
                     isError: true
                 };
             }
+    
             const data = msg.data ? new TextDecoder().decode(msg.data) : "<no data>";
+            
+            const timestamp = this.safeValue(msg.time || msg.timestamp, "unknown");
+            
+            const safeHeaders = (): string => {
+                try {
+                    if (!msg.header) return "none";
+                    return JSON.stringify(Object.fromEntries(msg.header), null, 2);
+                } catch (error) {
+                    return "error parsing headers";
+                }
+            };
+    
             return {
                 content: [{
                     type: "text",
                     text: `📨 Message in stream "${stream}" (sequence: ${sequence}):\n` +
-                          `• Subject: ${msg.subject}\n` +
-                          `• Timestamp: ${msg.time || msg.timestamp || "unknown"}\n` +
-                          `• Headers: ${msg.header ? JSON.stringify(Object.fromEntries(msg.header), null, 2) : "none"}\n` +
+                          `• Subject: ${this.safeValue(msg.subject, "unknown")}\n` +
+                          `• Timestamp: ${timestamp}\n` +
+                          `• Headers: ${safeHeaders()}\n` +
                           `• Data: ${data}`
                 }]
             };
@@ -114,20 +172,24 @@ export class MsgTools {
             const lastSeq = info.state.last_seq;
             const firstSeq = Math.max(1, lastSeq - count + 1);
             const messages = [];
+            
             for (let seq = firstSeq; seq <= lastSeq; seq++) {
                 try {
                     const msg = await jsm.streams.getMessage(stream, { seq });
+                    const data = msg.data ? new TextDecoder().decode(msg.data) : "<no data>";
+                    
                     messages.push({
                         sequence: seq,
-                        subject: msg.subject,
-                        time: msg.time || msg.timestamp,
+                        subject: this.safeValue(msg.subject, "unknown"),
+                        time: this.safeValue(msg.time || msg.timestamp, "unknown"),
                         header: msg.header,
-                        data: msg.data ? new TextDecoder().decode(msg.data) : "<no data>"
+                        data: data
                     });
                 } catch (e) {
                     // skip missing messages (e.g., deleted)
                 }
             }
+            
             if (messages.length === 0) {
                 return {
                     content: [{
@@ -136,9 +198,14 @@ export class MsgTools {
                     }]
                 };
             }
-            const msgList = messages.map(m =>
-                `• Seq: ${m.sequence}\n  Subject: ${m.subject}\n  Time: ${m.time}\n  Data: ${m.data.substring(0, 100)}${m.data.length > 100 ? '...' : ''}`
-            ).join("\n\n");
+            
+            const msgList = messages.map(m => {
+                const safeData = this.safeValue(m.data, "<no data>");
+                const truncatedData = safeData.length > 100 ? `${safeData.substring(0, 100)}...` : safeData;
+                
+                return `• Seq: ${m.sequence}\n  Subject: ${m.subject}\n  Time: ${m.time}\n  Data: ${truncatedData}`;
+            }).join("\n\n");
+            
             return {
                 content: [{
                     type: "text",
@@ -161,7 +228,7 @@ export class MsgTools {
         _extra: any
     ): Promise<{ content: ({ type: "text"; text: string } | { type: "image"; data: string; mimeType: string } | { type: "audio"; data: string; mimeType: string } | { type: "resource"; resource: any })[]; isError?: boolean }> {
         const { stream, subject, count } = args;
-
+    
         const nc = await connectNats();
         try {
             const jsm = await nc.jetstreamManager({domain: process.env.NATS_DOMAIN });
@@ -169,16 +236,23 @@ export class MsgTools {
             const lastSeq = info.state.last_seq;
             const firstSeq = Math.max(1, lastSeq - 500 + 1); // scan up to 500 messages for filtering
             const messages: FilteredMessage[] = [];
+            
             for (let seq = lastSeq; seq >= firstSeq && messages.length < count; seq--) {
                 try {
                     const msg = await jsm.streams.getMessage(stream, { seq });
-                    if (msg.subject && (msg.subject === subject || msg.subject.match(subject.replace(/\*/g, ".*")))) {
+                    const msgSubject = this.safeValue(msg.subject, "");
+                    
+                    const isMatch = this.subjectMatches(msgSubject, subject);
+                    
+                    if (isMatch) {
+                        const data = msg.data ? new TextDecoder().decode(msg.data) : "<no data>";
+                        
                         messages.push({
                             sequence: seq,
-                            subject: msg.subject,
-                            time: msg.time || msg.timestamp,
+                            subject: this.safeValue(msg.subject, "unknown"),
+                            time: this.safeValue(msg.time || msg.timestamp, "unknown"),
                             header: msg.header,
-                            data: msg.data ? new TextDecoder().decode(msg.data) : "<no data>"
+                            data: data
                         });
                     }
                 } catch (e) {
@@ -186,6 +260,7 @@ export class MsgTools {
                     console.error(`Error listing messages by subject: ${e}`);
                 }
             }
+            
             if (messages.length === 0) {
                 return {
                     content: [{
@@ -194,9 +269,14 @@ export class MsgTools {
                     }]
                 };
             }
-            const msgList = messages.map(m =>
-                `• Seq: ${m.sequence}\n  Subject: ${m.subject}\n  Time: ${m.time}\n  Data: ${m.data.substring(0, 100)}${m.data.length > 100 ? '...' : ''}`
-            ).join("\n\n");
+            
+            const msgList = messages.map(m => {
+                const safeData = this.safeValue(m.data, "<no data>");
+                const truncatedData = safeData.length > 100 ? `${safeData.substring(0, 100)}...` : safeData;
+                
+                return `• Seq: ${m.sequence}\n  Subject: ${m.subject}\n  Time: ${m.time}\n  Data: ${truncatedData}`;
+            }).join("\n\n");
+            
             return {
                 content: [{
                     type: "text",
@@ -227,26 +307,31 @@ export class MsgTools {
             const lastSeq = info.state.last_seq;
             const firstSeq = Math.max(1, lastSeq - 500 + 1); // scan up to 500 messages
             const messages: HeaderMatchMessage[] = [];
+            
             for (let seq = lastSeq; seq >= firstSeq && messages.length < count; seq--) {
                 try {
                     const msg = await jsm.streams.getMessage(stream, { seq });
-                    if (msg.header && msg.header.has(headerKey)) {
-                        const value = msg.header.get(headerKey);
-                        if (!headerValue || value === headerValue) {
-                            messages.push({
-                                sequence: seq,
-                                subject: msg.subject,
-                                time: msg.time || msg.timestamp,
-                                header: msg.header,
-                                headerValue: value,
-                                data: msg.data ? new TextDecoder().decode(msg.data) : "<no data>"
-                            });
-                        }
+                    
+                    // Safe header checking
+                    const headerMatch = this.checkHeaderMatch(msg.header, headerKey, headerValue);
+                    
+                    if (headerMatch.isMatch) {
+                        const data = msg.data ? new TextDecoder().decode(msg.data) : "<no data>";
+                        
+                        messages.push({
+                            sequence: seq,
+                            subject: this.safeValue(msg.subject, "unknown"),
+                            time: this.safeValue(msg.time || msg.timestamp, "unknown"),
+                            header: msg.header,
+                            headerValue: headerMatch.value,
+                            data: data
+                        });
                     }
                 } catch (e) {
                     // skip missing messages
                 }
             }
+            
             if (messages.length === 0) {
                 return {
                     content: [{
@@ -255,9 +340,14 @@ export class MsgTools {
                     }]
                 };
             }
-            const msgList = messages.map(m =>
-                `• Seq: ${m.sequence}\n  Subject: ${m.subject}\n  Time: ${m.time}\n  Header: ${headerKey} = ${m.headerValue}\n  Data: ${m.data.substring(0, 100)}${m.data.length > 100 ? '...' : ''}`
-            ).join("\n\n");
+            
+            const msgList = messages.map(m => {
+                const safeData = this.safeValue(m.data, "<no data>");
+                const truncatedData = safeData.length > 100 ? `${safeData.substring(0, 100)}...` : safeData;
+                
+                return `• Seq: ${m.sequence}\n  Subject: ${m.subject}\n  Time: ${m.time}\n  Header: ${headerKey} = ${this.safeValue(m.headerValue, "undefined")}\n  Data: ${truncatedData}`;
+            }).join("\n\n");
+            
             return {
                 content: [{
                     type: "text",

@@ -1,11 +1,12 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp";
 import { z } from "zod";
 import { connectNats } from "../nats";
+import { BaseTool } from "./base";
 
-export class PublisherTools {
+export class PublisherTools extends BaseTool {
 
-    constructor(private readonly server: McpServer) {
-        this.server = server;
+    constructor(server: McpServer) {
+        super(server);
     }
     
     registerTools() {
