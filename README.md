@@ -1,6 +1,6 @@
 # NatsMCP
 
-Unofficial Nats MCP server to play around with nats. 
+Unofficial Nats MCP server to interact with nats. 
 
 ## Features
 
